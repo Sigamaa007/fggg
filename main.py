@@ -18,10 +18,10 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 logging.basicConfig(level=logging.INFO)
 
 # --- КОНФИГУРАЦИЯ ---
-API_TOKEN = '——-'
+API_TOKEN = '8015744041:AAG4lrVb-P5uVTazjAVfMSqyF75OGMvA0QE'
 PHOTO_ID = None
 SUPPORT_LINK = "https://forms.gle/4kN2r57SJiPrxBjf9"
-GIFT_ACCOUNT = "@.    "
+GIFT_ACCOUNT = "@TI SIN SHLUXI"
 BOT_CARD = "2202 4910 2942 9325"
 
 CONFIG_FILE = "bot_config.json"
